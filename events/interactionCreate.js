@@ -173,13 +173,11 @@ async function handleTicketButtons(interaction) {
 }
 
 async function handleVouchModal(interaction) {
-  const pending = vouchPending.get(interaction.user.id);
-  if (!pending) {
+  const targetId = vouchPending.get(interaction.user.id);
+  if (!targetId) {
     return interaction.reply({ content: 'Vouch session expired. Please run the command again.', ephemeral: true });
   }
   vouchPending.delete(interaction.user.id);
-  const targetId = pending.targetId;
-  const productChannelId = pending.channelId;
 
   const ratingRaw = interaction.fields.getTextInputValue('vouch_rating');
   const review = interaction.fields.getTextInputValue('vouch_review');
@@ -204,7 +202,7 @@ async function handleVouchModal(interaction) {
   const counterRow = stmts.getVouchCounter.get(guild.id);
   const vouchNumber = counterRow ? counterRow.counter : 1;
 
-  stmts.createVouch.run(guild.id, targetId, interaction.user.id, rating, review, vouchNumber, productChannelId);
+  stmts.createVouch.run(guild.id, targetId, interaction.user.id, rating, review, vouchNumber, null);
 
   const targetMember = await guild.members.fetch(targetId).catch(() => null);
   const authorMember = await guild.members.fetch(interaction.user.id).catch(() => null);
@@ -214,21 +212,17 @@ async function handleVouchModal(interaction) {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   });
 
-  let description =
-    `**Vouch #${String(vouchNumber).padStart(3, '0')}**\n\n` +
-    `**Customer:** <@${targetId}>\n` +
-    `**Vouched by:** <@${interaction.user.id}>\n` +
-    `**Rating:** ${stars} (${rating}/5)\n` +
-    `**Review:** ${review}\n`;
-  if (productChannelId) {
-    description += `**Product:** <#${productChannelId}>\n`;
-  }
-  description += `**Date:** ${date}`;
-
   const embed = new EmbedBuilder()
     .setColor(0x8B0000)
     .setTitle('🕷️ SpiderWare Vouch')
-    .setDescription(description)
+    .setDescription(
+      `**Vouch #${String(vouchNumber).padStart(3, '0')}**\n\n` +
+      `**Customer:** <@${targetId}>\n` +
+      `**Vouched by:** <@${interaction.user.id}>\n` +
+      `**Rating:** ${stars} (${rating}/5)\n` +
+      `**Review:** ${review}\n` +
+      `**Date:** ${date}`
+    )
     .setImage(BANNER)
     .setThumbnail(authorMember ? authorMember.displayAvatarURL({ dynamic: true, size: 256 }) : null)
     .setTimestamp();
@@ -237,7 +231,7 @@ async function handleVouchModal(interaction) {
   return interaction.reply({ content: `Vouch submitted successfully! Posted in <#${settings.vouch_channel_id}>.`, ephemeral: true });
 }
 
-module.exports = async (interaction) => {
+module.exports = async (interaction, giveaways) => {
   if (!interaction.isStringSelectMenu() && !interaction.isButton() && !interaction.isModalSubmit()) return;
 
   try {
@@ -247,6 +241,22 @@ module.exports = async (interaction) => {
 
     if (interaction.isButton() && interaction.customId.startsWith('ticket_')) {
       return await handleTicketButtons(interaction);
+    }
+
+    if (interaction.isButton() && interaction.customId === 'giveaway_join') {
+      const gw = giveaways.get(interaction.message.id);
+      if (!gw) {
+        return interaction.reply({ content: 'This giveaway has ended.', ephemeral: true });
+      }
+      if (Date.now() > gw.endsAt) {
+        return interaction.reply({ content: 'This giveaway has already ended.', ephemeral: true });
+      }
+      if (gw.entries.has(interaction.user.id)) {
+        gw.entries.delete(interaction.user.id);
+        return interaction.reply({ content: 'You left the giveaway.', ephemeral: true });
+      }
+      gw.entries.add(interaction.user.id);
+      return interaction.reply({ content: `You entered the giveaway for **${gw.prize}**! Good luck!`, ephemeral: true });
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'ticket_rename_modal') {
