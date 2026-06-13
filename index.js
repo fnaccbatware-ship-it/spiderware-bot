@@ -14,6 +14,8 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+const giveaways = new Map();
+module.exports = { giveaways };
 
 // Load commands
 const commandsPath = path.join(__dirname, 'commands');
@@ -85,7 +87,7 @@ client.on('interactionCreate', async (interaction) => {
 
   // Handle select menus, buttons, modals via a centralized handler in events
   const eventHandler = require('./events/interactionCreate');
-  await eventHandler(interaction);
+  await eventHandler(interaction, giveaways);
 });
 
 client.login(process.env.DISCORD_TOKEN);
