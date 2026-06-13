@@ -124,7 +124,11 @@ async function handleTicketButtons(interaction) {
     }
 
     const transcriptText = messages.join('\n');
-    const transcriptPath = path.join(__dirname, '..', 'transcripts', `${interaction.channel.id}.txt`);
+    const transcriptDir = path.join(__dirname, '..', 'transcripts');
+    if (!fs.existsSync(transcriptDir)) {
+      fs.mkdirSync(transcriptDir, { recursive: true });
+    }
+    const transcriptPath = path.join(transcriptDir, `${interaction.channel.id}.txt`);
     fs.writeFileSync(transcriptPath, transcriptText, 'utf8');
 
     stmts.closeTicket.run(transcriptText, interaction.channel.id);
@@ -169,11 +173,13 @@ async function handleTicketButtons(interaction) {
 }
 
 async function handleVouchModal(interaction) {
-  const targetId = vouchPending.get(interaction.user.id);
-  if (!targetId) {
+  const pending = vouchPending.get(interaction.user.id);
+  if (!pending) {
     return interaction.reply({ content: 'Vouch session expired. Please run the command again.', ephemeral: true });
   }
   vouchPending.delete(interaction.user.id);
+  const targetId = pending.targetId;
+  const productChannelId = pending.channelId;
 
   const ratingRaw = interaction.fields.getTextInputValue('vouch_rating');
   const review = interaction.fields.getTextInputValue('vouch_review');
@@ -198,7 +204,7 @@ async function handleVouchModal(interaction) {
   const counterRow = stmts.getVouchCounter.get(guild.id);
   const vouchNumber = counterRow ? counterRow.counter : 1;
 
-  stmts.createVouch.run(guild.id, targetId, interaction.user.id, rating, review, vouchNumber);
+  stmts.createVouch.run(guild.id, targetId, interaction.user.id, rating, review, vouchNumber, productChannelId);
 
   const targetMember = await guild.members.fetch(targetId).catch(() => null);
   const authorMember = await guild.members.fetch(interaction.user.id).catch(() => null);
@@ -208,17 +214,21 @@ async function handleVouchModal(interaction) {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   });
 
+  let description =
+    `**Vouch #${String(vouchNumber).padStart(3, '0')}**\n\n` +
+    `**Customer:** <@${targetId}>\n` +
+    `**Vouched by:** <@${interaction.user.id}>\n` +
+    `**Rating:** ${stars} (${rating}/5)\n` +
+    `**Review:** ${review}\n`;
+  if (productChannelId) {
+    description += `**Product:** <#${productChannelId}>\n`;
+  }
+  description += `**Date:** ${date}`;
+
   const embed = new EmbedBuilder()
     .setColor(0x8B0000)
     .setTitle('🕷️ SpiderWare Vouch')
-    .setDescription(
-      `**Vouch #${String(vouchNumber).padStart(3, '0')}**\n\n` +
-      `**Customer:** <@${targetId}>\n` +
-      `**Vouched by:** <@${interaction.user.id}>\n` +
-      `**Rating:** ${stars} (${rating}/5)\n` +
-      `**Review:** ${review}\n` +
-      `**Date:** ${date}`
-    )
+    .setDescription(description)
     .setImage(BANNER)
     .setThumbnail(authorMember ? authorMember.displayAvatarURL({ dynamic: true, size: 256 }) : null)
     .setTimestamp();
