@@ -52,6 +52,13 @@ db.exec(`
   )
 `);
 
+// Migrate vouches table to add product_channel_id if missing
+try {
+  db.exec(`ALTER TABLE vouches ADD COLUMN product_channel_id TEXT`);
+} catch (e) {
+  // Column already exists
+}
+
 // Prepared statements
 const stmts = {
   // Settings
@@ -70,7 +77,7 @@ const stmts = {
   deleteTicket: db.prepare('DELETE FROM tickets WHERE channel_id = ?'),
 
   // Vouches
-  createVouch: db.prepare('INSERT INTO vouches (guild_id, vouched_user_id, vouched_by_id, rating, review, vouch_number) VALUES (?, ?, ?, ?, ?, ?)'),
+  createVouch: db.prepare('INSERT INTO vouches (guild_id, vouched_user_id, vouched_by_id, rating, review, vouch_number, product_channel_id) VALUES (?, ?, ?, ?, ?, ?, ?)'),
   getVouchesByUser: db.prepare('SELECT * FROM vouches WHERE guild_id = ? AND vouched_user_id = ? ORDER BY created_at DESC'),
   getVouchCount: db.prepare('SELECT COUNT(*) as count FROM vouches WHERE guild_id = ? AND vouched_user_id = ?'),
   getAverageRating: db.prepare('SELECT AVG(rating) as avg FROM vouches WHERE guild_id = ? AND vouched_user_id = ?'),
