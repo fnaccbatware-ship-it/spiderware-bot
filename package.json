@@ -1,0 +1,24 @@
+{
+  "name": "spiderware-bot",
+  "version": "1.0.0",
+  "description": "SpiderWare Discord Bot - Premium Ticket & Vouch System",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "ticket",
+    "vouch",
+    "spiderware"
+  ],
+  "author": "SpiderWare",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5"
+  }
+}
